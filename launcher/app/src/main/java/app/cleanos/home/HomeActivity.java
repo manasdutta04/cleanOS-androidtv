@@ -56,6 +56,7 @@ public class HomeActivity extends Activity {
     private TextView greetSmall, greetBig, dateLine;
     private FrameLayout dockArea;
     private ImageView glass;
+    private boolean leftHome; // something covered Home; animate the dock back in
 
     private final BroadcastReceiver timeReceiver = new BroadcastReceiver() {
         @Override
@@ -163,7 +164,20 @@ public class HomeActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (leftHome) {
+            leftHome = false;
+            dockArea.setTranslationY(Ui.dp(this, 14));
+            dockArea.setAlpha(0.6f);
+            dockArea.animate().translationY(0).alpha(1f).setDuration(260)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        }
+    }
+
+    @Override
     protected void onStop() {
+        leftHome = true;
         unregisterReceiver(timeReceiver);
         super.onStop();
     }
