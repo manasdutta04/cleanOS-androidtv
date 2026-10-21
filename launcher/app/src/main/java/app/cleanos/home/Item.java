@@ -56,7 +56,7 @@ final class Item {
     }
 
     static Item settings() {
-        return new Item("Settings", 0xFF636366, null, new Intent(Settings.ACTION_SETTINGS), R.drawable.ic_settings);
+        return new Item("Settings", 0xFF8E8E93, null, new Intent(Settings.ACTION_SETTINGS), R.drawable.ic_settings);
     }
 
     private static boolean isUnlocked(Context c) {
