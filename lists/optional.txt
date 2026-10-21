@@ -1,0 +1,10 @@
+# Things some households use and others don't. Delete the lines you want to KEEP, then run
+#   python3 tools/cleanos.py --tv <ip> debloat lists/optional.txt --yes
+
+com.google.android.katniss                # Google Assistant / voice search from the remote microphone
+com.google.android.apps.mediashell        # Chromecast built-in (casting from phones)
+com.google.android.tv.remote.service      # use your phone as a remote
+com.google.android.youtube.tvmusic        # YouTube Music
+com.google.android.play.games             # Play Games
+com.google.android.apps.tachyon           # Google Meet / Duo
+com.google.android.marvin.talkback        # TalkBack screen reader (keep it if anyone relies on it)

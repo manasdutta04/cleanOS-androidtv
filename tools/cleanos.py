@@ -204,6 +204,96 @@ def cmd_restore(tv, args):
     print("Done. Home is now: %s" % tv.home())
 
 
+# Packages the TV needs to work. debloat never touches these.
+PROTECTED_EXACT = {
+    "android", PKG,
+    "com.android.systemui", "com.android.settings", "com.android.tv.settings", "com.android.shell",
+    "com.android.vending", "com.google.android.gms", "com.google.android.gsf",
+    "com.google.android.webview", "com.android.webview", "com.google.android.ext.services",
+    "com.google.android.inputmethod.latin", "com.android.inputdevices", "com.android.bluetooth",
+    "com.android.permissioncontroller", "com.google.android.permissioncontroller",
+    "com.android.packageinstaller", "com.google.android.packageinstaller", "com.android.externalstorage",
+    "com.android.keychain", "com.android.location.fused", "com.android.se", "com.android.intentresolver",
+    "com.android.tv.frameworkpackagestubs", "com.android.htmlviewer", "com.android.certinstaller",
+    # Google TV setup: disabling it can make the TV forget the Wi-Fi it was set up with.
+    "com.google.android.tungsten.setupwraith",
+}
+PROTECTED_PREFIXES = ("com.android.providers.", "com.android.networkstack", "com.google.android.overlay.",
+                      "com.android.server.", "com.google.android.modulemetadata")
+# Vendor parts that drive the picture, inputs, tuner and remote on most TVs.
+PROTECTED_WORDS = ("tvinput", "tvcenter", "tv.service", "tvservice", "factory", "setupwizard", "overlay",
+                   ".rro", "auto_generated", "framework", "hdmi", "inputmethod", "keyboard", "remote.control",
+                   "systemui")
+
+
+def protected(pkg):
+    """Why `pkg` must not be disabled, or None if it may be."""
+    if pkg in PROTECTED_EXACT:
+        return "core system"
+    if pkg.startswith(PROTECTED_PREFIXES):
+        return "core system"
+    low = pkg.lower()
+    for w in PROTECTED_WORDS:
+        if w in low:
+            return "contains '%s' (picture, input, setup or system part)" % w
+    return None
+
+
+def read_list(path):
+    """Package names from a list file: one per line, '#' starts a comment."""
+    pkgs = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        name = line.split("#", 1)[0].strip()
+        if name and re.fullmatch(r"[A-Za-z][\w]*(\.[\w]+)+", name) and name not in pkgs:
+            pkgs.append(name)
+    return pkgs
+
+
+@command("debloat", "Switch off the apps in one or more list files (reversible)", args=[
+    (["lists"], {"nargs": "+", "help": "list files, e.g. lists/google-tv.txt"}),
+    (["--yes"], {"action": "store_true", "help": "apply the changes (otherwise only show the plan)"}),
+    (["--remove"], {"action": "store_true", "help": "uninstall for this user instead of disabling (still restorable)"}),
+])
+def cmd_debloat(tv, args):
+    wanted = []
+    for f in args.lists:
+        wanted += [p for p in read_list(f) if p not in wanted]
+    installed, enabled = tv.packages(), tv.packages("-e")
+
+    plan, skipped = [], []
+    for p in wanted:
+        why = protected(p)
+        if why:
+            skipped.append((p, "protected: " + why))
+        elif p not in installed:
+            skipped.append((p, "not on this TV"))
+        elif p not in enabled and not args.remove:
+            skipped.append((p, "already off"))
+        else:
+            plan.append(p)
+
+    for p, why in skipped:
+        print("  skip   %-50s %s" % (p, why))
+    for p in plan:
+        print("  %s %s" % ("remove" if args.remove else "disable", p))
+    if not plan:
+        print("Nothing to do.")
+        return
+    if not args.yes:
+        print("\n%d app(s) would be switched off. Run again with --yes to apply." % len(plan))
+        return
+
+    take_backup(tv, "before-debloat")
+    for i in range(0, len(plan), 5):  # small batches: easy to see what broke, if anything does
+        for p in plan[i:i + 5]:
+            cmd = ("pm uninstall -k --user 0 " if args.remove else "pm disable-user --user 0 ") + p
+            print("  %s -> %s" % (p, tv.sh(cmd)))
+        for p in plan[i:i + 5]:
+            tv.sh("am force-stop " + p)
+    free = mem_kb(tv, "MemAvailable") // 1024
+    print("\nDone. %d MB of memory available now. Undo any time with: cleanos restore" % free)
+
+
 # --- end of commands ---
 
 

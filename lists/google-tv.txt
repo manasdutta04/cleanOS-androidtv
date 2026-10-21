@@ -1,0 +1,13 @@
+# Google TV / Android TV extras that most people never use.
+# Safe on every Android TV we know of; all of it is reversible with `cleanos restore`.
+#
+#   python3 tools/cleanos.py --tv <ip> debloat lists/google-tv.txt          # show the plan
+#   python3 tools/cleanos.py --tv <ip> debloat lists/google-tv.txt --yes    # apply it
+
+com.google.android.tvrecommendations                  # promoted rows on the stock home screen
+com.google.android.leanbacklauncher.partnercustomizer # manufacturer promos for the stock launcher
+com.google.android.partnersetup                       # partner bookmarks and promos
+com.google.android.feedback                           # crash/feedback reporter
+com.android.tv.feedbackconsent                        # feedback consent screen
+com.google.android.syncadapters.calendar              # calendar sync, unused on a TV
+com.google.android.backdrop                           # Ambient screensaver (cleanOS has its own; turn back on if you prefer it)
