@@ -7,15 +7,29 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.view.View;
 import android.widget.Toast;
 
-/** Opens a tile's app or screen; the new window grows out of the tile, like tvOS. */
+/**
+ * Opens a tile's app or screen; the new window grows out of the tile, like tvOS.
+ *
+ * Home starts before Android unlocks user storage at boot (direct boot), when other apps can't run
+ * yet. A tile pressed in those seconds is remembered and opened as soon as the TV is ready.
+ */
 final class Launch {
+
+    private static Item pending;
 
     private Launch() {}
 
     static void open(Activity a, Item item, View from) {
+        UserManager um = a.getSystemService(UserManager.class);
+        if (item.pkg != null && um != null && !um.isUserUnlocked()) {
+            pending = item;
+            Toast.makeText(a, "Opening " + item.title + " as soon as the TV finishes starting…", Toast.LENGTH_LONG).show();
+            return;
+        }
         try {
             Intent i;
             if (item.pkg != null) {
@@ -36,5 +50,12 @@ final class Launch {
         } catch (ActivityNotFoundException | SecurityException e) {
             Toast.makeText(a, "Couldn't open " + item.title, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /** Call once the user is unlocked: opens a tile pressed during boot. */
+    static void onUnlocked(Activity a) {
+        Item item = pending;
+        pending = null;
+        if (item != null) open(a, item, null);
     }
 }

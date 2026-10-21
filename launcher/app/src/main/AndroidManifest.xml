@@ -19,11 +19,13 @@
         android:allowBackup="false"
         android:supportsRtl="false"
         android:hardwareAccelerated="true"
+        android:directBootAware="true"
         android:theme="@style/Theme.CleanOS">
 
         <activity
             android:name=".HomeActivity"
             android:exported="true"
+            android:directBootAware="true"
             android:launchMode="singleTask"
             android:clearTaskOnLaunch="true"
             android:stateNotNeeded="true"

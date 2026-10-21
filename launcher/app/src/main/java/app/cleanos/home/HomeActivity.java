@@ -72,6 +72,16 @@ public class HomeActivity extends Activity {
         }
     };
 
+    /** Home may start before unlock (direct boot): finish the parts that need user storage. */
+    private final BroadcastReceiver unlockReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            rebuildDock();
+            loadWallpaper(false); // picks up the user's own picture if the cache was built while locked
+            Launch.onUnlocked(HomeActivity.this);
+        }
+    };
+
     private final ConnectivityManager.NetworkCallback netCallback = new ConnectivityManager.NetworkCallback() {
         @Override
         public void onCapabilitiesChanged(Network n, NetworkCapabilities caps) {
@@ -120,6 +130,7 @@ public class HomeActivity extends Activity {
         pf.addAction(Intent.ACTION_PACKAGE_CHANGED);
         pf.addDataScheme("package");
         registerReceiver(packageReceiver, pf);
+        registerReceiver(unlockReceiver, new IntentFilter(Intent.ACTION_USER_UNLOCKED));
 
         status.setNetwork(R.drawable.ic_wifi_off, -1f);
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
@@ -160,6 +171,7 @@ public class HomeActivity extends Activity {
     @Override
     protected void onDestroy() {
         unregisterReceiver(packageReceiver);
+        unregisterReceiver(unlockReceiver);
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm != null) cm.unregisterNetworkCallback(netCallback);
         bg.shutdownNow();
