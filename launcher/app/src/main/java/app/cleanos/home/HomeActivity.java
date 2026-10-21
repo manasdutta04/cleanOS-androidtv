@@ -288,6 +288,14 @@ public class HomeActivity extends Activity {
             Item it = Item.app(this, p);
             if (it != null) items.add(it);
         }
+        // No configured or default app installed: fill with the first apps on the TV.
+        if (items.isEmpty()) {
+            for (Item it : AppsActivity.list(this)) {
+                if (items.size() >= Config.MAX_DOCK_APPS - 1) break;
+                items.add(it);
+            }
+        }
+        items.add(Item.allApps(this));
         items.add(Item.settings());
         return items;
     }
@@ -305,7 +313,7 @@ public class HomeActivity extends Activity {
         int gap = Ui.dp(c, 18);
         int maxW = screenW - 2 * side;
         // Tiles are sized for a full dock; fewer apps make a shorter, centred dock, not giant tiles.
-        int slots = Math.max(items.size(), Config.MAX_DOCK_APPS + 1);
+        int slots = Math.max(items.size(), Config.MAX_DOCK_APPS + 2);
         int tileW = (maxW - 2 * pad - gap * (slots - 1)) / slots;
         int tileH = tileW * 3 / 5;
         int dockW = items.size() * tileW + (items.size() - 1) * gap + 2 * pad;

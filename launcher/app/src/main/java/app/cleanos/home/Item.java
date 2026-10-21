@@ -59,6 +59,10 @@ final class Item {
         return new Item("Settings", 0xFF8E8E93, null, new Intent(Settings.ACTION_SETTINGS), R.drawable.ic_settings);
     }
 
+    static Item allApps(Context c) {
+        return new Item("Apps", 0xFF5E5CE6, null, new Intent(c, AppsActivity.class), R.drawable.ic_apps);
+    }
+
     private static boolean isUnlocked(Context c) {
         android.os.UserManager um = c.getSystemService(android.os.UserManager.class);
         return um == null || um.isUserUnlocked();
