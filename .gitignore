@@ -1,0 +1,21 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+captures/
+
+# Python
+__pycache__/
+*.pyc
+
+# Device backups made by the CLI (they list your installed apps)
+backups/
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
