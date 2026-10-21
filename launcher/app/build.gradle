@@ -1,0 +1,31 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace = 'app.cleanos.home'
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = 'app.cleanos.home'
+        minSdk = 30
+        targetSdk = 34
+        versionCode = 1
+        versionName = '0.1.0'
+    }
+
+    buildTypes {
+        release {
+            // Sideloaded, so the debug key is enough. Sign with your own key for wider distribution.
+            signingConfig = signingConfigs.debug
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
