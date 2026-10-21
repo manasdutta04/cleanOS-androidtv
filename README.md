@@ -1,5 +1,14 @@
 # cleanOS for Android TV
 
+[![Build](https://github.com/manasdutta04/cleanOS-androidtv/actions/workflows/build.yml/badge.svg)](https://github.com/manasdutta04/cleanOS-androidtv/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/github/license/manasdutta04/cleanOS-androidtv?color=blue)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Android%20TV%20%7C%20Google%20TV-3DDC84?logo=android&logoColor=white)](#requirements)
+[![Android 11+](https://img.shields.io/badge/Android-11%2B-3DDC84?logo=android&logoColor=white)](#requirements)
+[![No root](https://img.shields.io/badge/root-not%20required-success)](#safety)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-3776AB?logo=python&logoColor=white)](tools/cleanos.py)
+[![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)](launcher/)
+[![Last commit](https://img.shields.io/github/last-commit/manasdutta04/cleanOS-androidtv)](https://github.com/manasdutta04/cleanOS-androidtv/commits/main)
+
 **A fast home screen in the Apple TV style for Android TV and Google TV, plus a safe, reversible way to switch off
 the bloat your TV shipped with.** No root. Everything runs from your computer over Wi-Fi, and every change can be undone.
 
