@@ -10,6 +10,7 @@ Run `python3 tools/cleanos.py -h` for all commands.
 """
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -127,6 +128,80 @@ def cmd_probe(tv, args):
     section = out.split("Total PSS by process:")[-1].split("Total PSS by OOM")[0]
     for line in [l.strip() for l in section.splitlines() if l.strip()][:12]:
         print("  " + line)
+
+
+BACKUP_DIR = ROOT / "backups"
+
+
+def take_backup(tv, reason="manual"):
+    """Saves what restore needs: package states, Home app, screensaver and animation settings."""
+
+    data = {
+        "taken": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "reason": reason,
+        "android": tv.prop("ro.build.version.release"),
+        "enabled": sorted(tv.packages("-e")),
+        "disabled": sorted(tv.packages("-d")),
+        "home": tv.home(),
+        "screensaver_components": tv.sh("settings get secure screensaver_components"),
+        "screensaver_enabled": tv.sh("settings get secure screensaver_enabled"),
+        "window_animation_scale": tv.sh("settings get global window_animation_scale"),
+        "transition_animation_scale": tv.sh("settings get global transition_animation_scale"),
+        "animator_duration_scale": tv.sh("settings get global animator_duration_scale"),
+    }
+    BACKUP_DIR.mkdir(exist_ok=True)
+    path = BACKUP_DIR / ("%s-%s.json" % (time.strftime("%Y%m%d-%H%M%S"), reason))
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    print("Backup saved: %s" % path.relative_to(ROOT))
+    return path
+
+
+def latest_backup():
+    files = sorted(BACKUP_DIR.glob("*.json")) if BACKUP_DIR.is_dir() else []
+    # The oldest backup is the original state; prefer it for a full restore.
+    return files[0] if files else None
+
+
+@command("backup", "Save the TV's current app and settings state to backups/")
+def cmd_backup(tv, args):
+    take_backup(tv)
+
+
+@command("restore", "Undo everything: re-enable apps, restore Home, screensaver and animations", args=[
+    (["backup"], {"nargs": "?", "help": "backup file (default: the oldest one, i.e. the original state)"}),
+    (["--uninstall"], {"action": "store_true", "help": "also uninstall cleanOS Home"}),
+])
+def cmd_restore(tv, args):
+
+    path = Path(args.backup) if args.backup else latest_backup()
+    if not path or not path.is_file():
+        raise AdbError("No backup found. Pass a file from backups/.")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    print("Restoring from %s (taken %s)" % (path.name, data["taken"]))
+
+    enabled_now = tv.packages("-e")
+    installed_now = tv.packages()
+    for pkg in data["enabled"]:
+        if pkg == PKG:
+            continue
+        if pkg not in installed_now:
+            print("  reinstall %s: %s" % (pkg, tv.sh("cmd package install-existing --user 0 " + pkg)))
+        elif pkg not in enabled_now:
+            print("  enable    %s: %s" % (pkg, tv.sh("pm enable " + pkg)))
+
+    home = data.get("home", "")
+    if home and "/" in home and not home.startswith(PKG):
+        tv.sh("cmd package set-home-activity --user 0 " + home)
+    for key in ("window_animation_scale", "transition_animation_scale", "animator_duration_scale"):
+        val = data.get(key, "null")
+        tv.sh("settings %s global %s %s" % ("delete" if val == "null" else "put", key, "" if val == "null" else val))
+    saver = data.get("screensaver_components", "null")
+    if saver and saver != "null":
+        tv.sh("settings put secure screensaver_components " + saver)
+    if args.uninstall:
+        print("  uninstall cleanOS Home: %s" % tv.adb("uninstall", PKG, check=False))
+    tv.sh("input keyevent KEYCODE_HOME")
+    print("Done. Home is now: %s" % tv.home())
 
 
 # --- end of commands ---
