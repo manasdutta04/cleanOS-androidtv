@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -431,6 +432,61 @@ def cmd_install(tv, args):
         tv.sh("settings put global window_animation_scale 0.5")
     print("\nHome is now: %s" % tv.home())
     print("Next: `cleanos config --name ... --city ...`, then turn USB debugging off on the TV.")
+
+
+def send_to_home(tv, extras):
+    """Pass settings to cleanOS Home as intent extras (it stores them itself)."""
+    parts = ["am", "start", "-n", HOME_ACTIVITY]
+    for key, value in extras:
+        if isinstance(value, bool):
+            parts += ["--ez", key, "true" if value else "false"]
+        else:
+            parts += ["--es", key, shlex.quote(value) if value else "''"]
+    print(tv.sh(" ".join(parts)))
+
+
+@command("config", "Set your name, greeting, weather city and dock apps", args=[
+    (["--name"], {"help": "shown big at top-left, e.g. --name \"Sam\" (empty: a time-of-day greeting)"}),
+    (["--greeting"], {"help": "small line above the name (default: Welcome)"}),
+    (["--city"], {"help": "weather location: a place (\"Lisbon\", \"Springfield, Illinois\") or \"lat,lon\"; empty hides weather"}),
+    (["--dock"], {"help": "comma-separated package names for the dock, in order (max 6)"}),
+    (["--reset"], {"action": "store_true", "help": "clear all of the above"}),
+])
+def cmd_config(tv, args):
+    extras = []
+    if args.reset:
+        extras.append(("reset", True))
+    for key in ("name", "greeting", "city", "dock"):
+        value = getattr(args, key)
+        if value is not None:
+            extras.append((key, value))
+    if not extras:
+        raise AdbError("Nothing to set. Try: config --name \"Sam\" --city \"Lisbon\"")
+    if args.dock:
+        installed = tv.packages()
+        missing = [p.strip() for p in args.dock.split(",") if p.strip() and p.strip() not in installed]
+        if missing:
+            print("Not installed on this TV (will be skipped): %s" % ", ".join(missing))
+    send_to_home(tv, extras)
+
+
+@command("wallpaper", "Use your own picture as the wallpaper (or --default for the built-in one)", args=[
+    (["image"], {"nargs": "?", "help": "a .jpg, .png or .webp file; landscape, at least the TV's resolution"}),
+    (["--default"], {"action": "store_true", "help": "go back to the built-in wallpaper"}),
+])
+def cmd_wallpaper(tv, args):
+    folder = "/sdcard/Android/data/%s/files" % PKG
+    tv.sh("mkdir -p %s && rm -f %s/wallpaper.*" % (folder, folder))
+    if not args.default:
+        if not args.image:
+            raise AdbError("Pass an image file, or --default.")
+        src = Path(args.image)
+        ext = src.suffix.lower()
+        if ext not in (".jpg", ".jpeg", ".png", ".webp") or not src.is_file():
+            raise AdbError("Use an existing .jpg, .png or .webp file.")
+        print(tv.adb("push", str(src), "%s/wallpaper%s" % (folder, ".jpg" if ext == ".jpeg" else ext)))
+    send_to_home(tv, [("reload_wallpaper", True)])
+    print("Wallpaper updated. Home and the screensaver pick it up right away.")
 
 
 # --- end of commands ---
