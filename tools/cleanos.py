@@ -368,6 +368,71 @@ def cmd_scan(tv, args):
         print("\nWrote %s" % args.write)
 
 
+def build_apk():
+    launcher = ROOT / "launcher"
+    gradlew = launcher / ("gradlew.bat" if os.name == "nt" else "gradlew")
+    print("Building the launcher (first build downloads Gradle, a few minutes)...")
+    p = subprocess.run([str(gradlew), "assembleRelease", "--console=plain", "-q"], cwd=launcher)
+    if p.returncode != 0:
+        raise AdbError("Build failed. You need JDK 17+ and the Android SDK (set ANDROID_HOME or launcher/local.properties).")
+    return launcher / "app" / "build" / "outputs" / "apk" / "release" / "app-release.apk"
+
+
+def home_candidates(tv):
+    out = tv.sh("cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.HOME")
+    return [l.strip() for l in out.splitlines() if "/" in l and not l.strip().startswith(("priority", "Activity"))]
+
+
+@command("install", "Build and install cleanOS Home and make it the home screen", args=[
+    (["--apk"], {"help": "install this APK instead of building one"}),
+    (["--replace-stock"], {"action": "store_true",
+                           "help": "disable the stock launcher(s), needed on TVs where it outranks other home apps"}),
+    (["--keep-animations"], {"action": "store_true", "help": "leave the TV's animation speed settings alone"}),
+    (["--keep-screensaver"], {"action": "store_true", "help": "don't switch the screensaver to cleanOS Clock"}),
+])
+def cmd_install(tv, args):
+    take_backup(tv, "before-install")
+    apk = Path(args.apk) if args.apk else build_apk()
+    if not apk.is_file():
+        raise AdbError("APK not found: %s" % apk)
+    print("Installing %s ..." % apk.name)
+    print("  " + tv.adb("install", "-r", str(apk), timeout=300))
+    # Compile ahead of time: no JIT warm-up, so Home opens instantly even on slow TV chips.
+    tv.sh("cmd package compile -m speed -f " + PKG)
+
+    tv.sh("cmd package set-home-activity --user 0 " + HOME_ACTIVITY)
+    if not any(c.startswith(PKG) for c in home_candidates(tv)):
+        raise AdbError("cleanOS Home is not offered as a home app; nothing else was changed.")
+    tv.sh("input keyevent KEYCODE_HOME")
+    time.sleep(2)
+
+    stock = [c.split("/")[0] for c in home_candidates(tv)
+             if not c.startswith(PKG) and "FallbackHome" not in c and not c.startswith("com.android.tv.settings")]
+    if not tv.home().startswith(PKG):
+        if not args.replace_stock:
+            print("\nThe stock launcher (%s) still wins on this TV." % ", ".join(stock))
+            print("Run again with --replace-stock to switch it off (restorable with `cleanos restore`).")
+        else:
+            for p in stock:
+                print("  disable stock launcher %s: %s" % (p, tv.sh("pm disable-user --user 0 " + p)))
+            tv.sh("input keyevent KEYCODE_HOME")
+            time.sleep(2)
+            if not tv.home().startswith(PKG):
+                for p in stock:
+                    tv.sh("pm enable " + p)
+                raise AdbError("Home did not switch; the stock launcher was turned back on.")
+
+    if not args.keep_screensaver:
+        tv.sh("settings put secure screensaver_enabled 1")
+        tv.sh("settings put secure screensaver_components " + DREAM)
+    if not args.keep_animations:
+        # Many TVs ship with transitions off, so apps snap open and shut. Short, smooth ones instead.
+        tv.sh("settings put global transition_animation_scale 0.75")
+        tv.sh("settings put global window_animation_scale 0.5")
+    print("\nHome is now: %s" % tv.home())
+    print("Next: `cleanos config --name ... --city ...`, then turn USB debugging off on the TV.")
+
+
 # --- end of commands ---
 
 
